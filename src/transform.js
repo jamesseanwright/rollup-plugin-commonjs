@@ -35,6 +35,16 @@ function tryParse ( parse, code, id ) {
 	}
 }
 
+function getDefaultExport (code, moduleName, helpersName, hasDefaultExport, namedExports) {
+	if (!hasDefaultExport && !namedExports.length) {
+		return '';
+	}
+
+	return /__esModule/.test( code ) ?
+		`export default ${helpersName}.unwrapExports(${moduleName});` :
+		`export default ${moduleName};`;
+}
+
 export function checkFirstpass (code, ignoreGlobal) {
 	const firstpass = ignoreGlobal ? firstpassNoGlobal : firstpassGlobal;
 	return firstpass.test(code);
@@ -396,7 +406,7 @@ export function transformCommonjs ( parse, code, id, isEntry, ignoreGlobal, igno
 			}
 		});
 
-		if ( !hasDefaultExport ) {
+		if ( !hasDefaultExport || names.length ) {
 			wrapperEnd = `\n\nvar ${moduleName} = {\n${
 				names.map( ({ name, deconflicted }) => `\t${name}: ${deconflicted}` ).join( ',\n' )
 			}\n};`;
@@ -406,9 +416,8 @@ export function transformCommonjs ( parse, code, id, isEntry, ignoreGlobal, igno
 		.filter( key => !blacklist[ key ] )
 		.forEach( addExport );
 
-	const defaultExport = /__esModule/.test( code ) ?
-		`export default ${HELPERS_NAME}.unwrapExports(${moduleName});` :
-		`export default ${moduleName};`;
+
+	const defaultExport = getDefaultExport(code, moduleName, HELPERS_NAME, hasDefaultExport, namedExports);
 
 	const named = namedExportDeclarations
 		.filter( x => x.name !== 'default' || !hasDefaultExport )
